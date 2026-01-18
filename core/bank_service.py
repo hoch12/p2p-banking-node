@@ -5,20 +5,44 @@ from shared.structures.LinkedStack import LinkedStack
 from shared.structures.LinkedQueue import LinkedQueue
 
 
-# --- CODE REUSE NOTE ---
-# Integrates LinkedStack (History) and LinkedQueue (Buffer) from algorithmic tasks.
-# Includes Socket Client logic for P2P communication (Essentials Level).
-# -----------------------
-
 class BankService:
+    """
+    The Business Logic Layer of the P2P Banking Node.
+
+    This class acts as a controller that:
+    1. Validates and executes incoming commands.
+    2. Manages data persistence via AccountRepository.
+    3. Handles P2P routing (forwarding commands to other nodes).
+    4. Logs activity using custom Linked structures.
+
+    Attributes:
+        repository (AccountRepository): Access to data storage.
+        transaction_history (LinkedStack): LIFO log of operations.
+        request_queue (LinkedQueue): FIFO buffer for incoming requests.
+        my_ips (list): List of IP addresses identified as 'local'.
+    """
+
     def __init__(self):
         self.repository = AccountRepository()
+
+        # --- CODE REUSE NOTE ---
+        # Integrates LinkedStack (History) and LinkedQueue (Buffer) from algorithmic tasks.
+        # -----------------------
         self.transaction_history = LinkedStack()
         self.request_queue = LinkedQueue()
 
+        # In a real-world scenario, we would detect interfaces dynamically.
+        # For this assignment, we treat these IPs as 'ours'.
         self.my_ips = ["127.0.0.1", "localhost", "0.0.0.0"]
 
     def _log_transaction(self, message: str):
+        """
+        Logs an event to both the Audit Log (Stack) and Processing Buffer (Queue).
+        Demonstrates the usage of custom data structures.
+
+        Args:
+            message (str): The transaction details to log.
+        """
         timestamp = time.strftime("%H:%M:%S")
         entry = f"[{timestamp}] {message}"
         self.transaction_history.add(entry)
@@ -27,16 +51,25 @@ class BankService:
 
     def _forward_command(self, target_ip: str, command: str) -> str:
         """
-        ACTS AS A CLIENT: Connects to another Bank Node to forward a request.
+        Acts as a TCP CLIENT to forward a command to a remote Bank Node.
+        Used when the target account IP does not match the local node.
+
+        Args:
+            target_ip (str): The IP address of the remote bank.
+            command (str): The raw command string to forward.
+
+        Returns:
+            str: The response from the remote server or an error message.
         """
         print(f"[P2P] Forwarding command to {target_ip}: {command}")
         try:
+            # We assume all nodes listen on port 65525 as per assignment
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.settimeout(5)
+                s.settimeout(5)  # Avoid hanging indefinitely
                 s.connect((target_ip, 65525))
-
                 s.sendall(f"{command}\n".encode("utf-8"))
 
+                # Wait for response
                 response = s.recv(1024).decode("utf-8").strip()
                 return response
         except ConnectionRefusedError:
@@ -47,10 +80,30 @@ class BankService:
             return f"ER P2P Error: {str(e)}"
 
     def _is_local_account(self, ip_address: str) -> bool:
-        """Checks if the account belongs to this node."""
+        """Determines if the request is for this node or a remote peer."""
         return ip_address in self.my_ips
 
     def execute_command(self, command_str: str, client_ip: str) -> str:
+        """
+        Parses and executes the banking protocol commands.
+
+        Supported Commands:
+        - BC: Bank Check
+        - AC: Account Create
+        - AD: Account Deposit (Supports P2P forwarding)
+        - AW: Account Withdraw (Supports P2P forwarding)
+        - AB: Account Balance (Supports P2P forwarding)
+        - AR: Account Remove
+        - BA: Bank Amount (Total)
+        - BN: Bank Number (Count)
+
+        Args:
+            command_str (str): The raw command string received from client.
+            client_ip (str): The IP address of the client (for logging/BC).
+
+        Returns:
+            str: The protocol response string.
+        """
         parts = command_str.strip().split()
         if not parts:
             return "ER Empty command"
@@ -58,7 +111,7 @@ class BankService:
         cmd = parts[0].upper()
 
         try:
-            # --- BC: Bank Code ---
+            # --- BC: Bank Check ---
             if cmd == "BC":
                 return f"BC {client_ip}"
 
@@ -66,13 +119,15 @@ class BankService:
             elif cmd == "AC":
                 import random
                 new_num = random.randint(10000, 99999)
+                # Ensure uniqueness
                 while self.repository.find_by_number(new_num):
                     new_num = random.randint(10000, 99999)
+
                 self.repository.create(new_num)
                 self._log_transaction(f"Created account {new_num}")
                 return f"AC {new_num}/{client_ip}"
 
-            # --- AD: Account Deposit ---
+            # --- AD: Deposit ---
             elif cmd == "AD":
                 if len(parts) != 3: return "ER Invalid format"
                 acc_full = parts[1]
@@ -95,7 +150,7 @@ class BankService:
                 self._log_transaction(f"Deposit {amount} to {acc_num}")
                 return "AD"
 
-            # --- AW: Account Withdrawal ---
+            # --- AW: Withdraw ---
             elif cmd == "AW":
                 if len(parts) != 3: return "ER Invalid format"
                 acc_full = parts[1]
@@ -121,7 +176,7 @@ class BankService:
                 except ValueError:
                     return "ER Insufficient funds"
 
-            # --- AB: Account Balance ---
+            # --- AB: Balance ---
             elif cmd == "AB":
                 if len(parts) != 2: return "ER Invalid format"
 
@@ -140,7 +195,7 @@ class BankService:
                 if not account: return "ER Account not found"
                 return f"AB {account.balance}"
 
-            # --- AR: Account Remove ---
+            # --- AR: Remove ---
             elif cmd == "AR":
                 acc_num = int(parts[1].split("/")[0])
                 try:
