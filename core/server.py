@@ -4,7 +4,7 @@ from core.bank_service import BankService
 
 
 # --- CODE REUSE NOTE ---
-# TCP Server logic based on School Assignment 16.1 & 16.3 (Threading).
+# TCP Server logic based on School Assignment 16.1 & 16.3 (Threading) from PV Moodle.
 # -----------------------
 
 class BankNode:

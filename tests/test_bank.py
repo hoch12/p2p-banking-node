@@ -2,7 +2,7 @@ import unittest
 from core.domain import Account
 
 # --- CODE REUSE NOTE ---
-# Unit testing logic based on Assignment 11.1 & 11.2.
+# Unit testing logic based on Assignment 11.1 & 11.2 from PV Moodle.
 # -----------------------
 
 class TestBankAccount(unittest.TestCase):
