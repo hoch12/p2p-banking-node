@@ -64,6 +64,63 @@ sequenceDiagram
     NodeA-->>User: Response: AD
 ```
 
+### Final Architecture Overview
+This diagram illustrates the complete internal structure of the banking node, highlighting the data flow between layers and the integration of reused data structures (Queue, Stack).
+
+```mermaid
+graph TD
+    %% Definice stylů pro hezčí vzhled
+    classDef client fill:#f96,stroke:#333,stroke-width:2px,color:white;
+    classDef network fill:#69b3a2,stroke:#333,stroke-width:2px,color:white;
+    classDef logic fill:#409ad5,stroke:#333,stroke-width:2px,color:white;
+    classDef data fill:#9d6cc1,stroke:#333,stroke-width:2px,color:white;
+    classDef reuse fill:#e6b800,stroke:#333,stroke-width:2px,stroke-dasharray: 5 5,color:white;
+
+    subgraph CLIENT_LAYER [Client Layer]
+        User((User / Netcat)):::client
+        PeerNode((Remote P2P Node)):::client
+    end
+
+    subgraph APP_CONTAINER [P2P Bank Node Application]
+        
+        subgraph NET_LAYER [Network Layer]
+            ServerBox[Server.py <br/> Socket Listener & Threading]:::network
+        end
+
+        subgraph REUSE_LAYER [Code Reuse / Structures]
+            InputBuffer[LinkedQueue <br/> Request Buffer FIFO]:::reuse
+            AuditLog[LinkedStack <br/> Transaction History LIFO]:::reuse
+        end
+
+        subgraph BIZ_LAYER [Business Logic Layer]
+            Service[BankService.py <br/> Command Parser & Logic]:::logic
+            Router{Is Local IP?}:::logic
+        end
+
+        subgraph DATA_LAYER [Data Persistence Layer]
+            Repo[Repository.py <br/> CRUD Operations]:::data
+            DB[(accounts.json)]:::data
+        end
+    end
+
+    %% Propojení - Tok dat
+    User -->|TCP Command: AD/AC...| ServerBox
+    PeerNode -->|P2P Forwarding| ServerBox
+    
+    ServerBox -->|Push to Buffer| InputBuffer
+    InputBuffer -->|Process| Service
+    
+    Service -->|Validate| Router
+    
+    Router -->|No: Forward| PeerNode
+    Router -->|Yes: Execute| Repo
+    
+    Repo <-->|Read / Write| DB
+    
+    Service -.->|Log Action| AuditLog
+
+```
+
 ##️ Code Reuse Strategy
 
 This project demonstrates the ability to integrate existing, tested components into a new context to speed up development.
