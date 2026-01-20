@@ -95,7 +95,7 @@ class BankNode:
                 response = self.service.execute_command(command_str, addr[0])
 
                 # Send response
-                conn.sendall(f"{response}\n".encode("utf-8"))
+                conn.sendall(f"{response}\r\n".encode("utf-8"))
 
         except socket.timeout:
             print(f"[TIMEOUT] Client {addr[0]} was idle for too long.")
