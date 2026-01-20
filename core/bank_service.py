@@ -31,9 +31,22 @@ class BankService:
         self.transaction_history = LinkedStack()
         self.request_queue = LinkedQueue()
 
-        # In a real-world scenario, we would detect interfaces dynamically.
-        # For this assignment, we treat these IPs as 'ours'.
+        # --- FIX: Dynamic IP Detection ---
+        # We start with standard loopback addresses
         self.my_ips = ["127.0.0.1", "localhost", "0.0.0.0"]
+
+        # Now we try to find the REAL LAN IP address of this computer (e.g., 10.2.7.132)
+        # This prevents the "Self-Forwarding Loop" error.
+        try:
+            hostname = socket.gethostname()
+            local_ip = socket.gethostbyname(hostname)
+            if local_ip not in self.my_ips:
+                self.my_ips.append(local_ip)
+
+            # Print for debugging so you can see what IPs are considered local
+            print(f"[INFO] BankService initialized. My local IPs: {self.my_ips}")
+        except Exception as e:
+            print(f"[WARN] Could not detect local IP: {e}")
 
     def _log_transaction(self, message: str):
         """
