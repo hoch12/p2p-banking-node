@@ -121,7 +121,7 @@ graph TD
 
 ```
 
-##️ Code Reuse Strategy
+## Code Reuse Strategy
 
 This project demonstrates the ability to integrate existing, tested components into a new context to speed up development.
 
